@@ -128,7 +128,7 @@ class UnifiedMotionControlGUI(QMainWindow):
         self.tabs.addTab(self.create_connection_tab(), "Connection")
         self.tabs.addTab(self.create_manual_control_tab(), "Manual Control")
         self.tabs.addTab(self.create_path_control_tab(), "Path Execution")
-        self.tabs.addTab(self.create_status_tab(), "Status & Monitoring")
+        self.tabs.addTab(self.create_status_tab(), "Status Monitoring")
         
         main_layout.addWidget(self.tabs)
         
