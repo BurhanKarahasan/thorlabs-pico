@@ -15,40 +15,51 @@ import serial.tools.list_ports
 from stepper_controller import PicoStepperController
 from lts_controller import ThorlabsLTSController
 
-# Mock controllers for demonstration
-class PicoStepperController:
-    def __init__(self, port=None, baudrate=115200, timeout=1.0):
-        self.port = port or "COM3"
-        self._current_rps = 0.0
-        self._target_rps = 0.0
-        self._position = 0
-    def enable_motor(self): return True
-    def disable_motor(self): return True
-    def set_speed_rps(self, rps): self._target_rps = rps; return True
-    def stop(self): self._target_rps = 0; return True
-    def set_ramp_rate(self, rate): return True
-    def get_status(self):
-        if self._current_rps < self._target_rps: self._current_rps += 0.1
-        elif self._current_rps > self._target_rps: self._current_rps -= 0.1
-        self._position += int(self._current_rps * 200 / 10)
-        return (self._current_rps, self._target_rps, self._position)
-    def close(self): pass
 
-class ThorlabsLTSController:
-    def __init__(self, port=None):
-        self.port = port or "COM4"
-        self._position = 0.0
-        self._target = 0.0
-    def home(self): self._position = 0.0; return True
-    def move_absolute(self, pos): self._target = pos; return True
-    def move_relative(self, dist): self._target = self._position + dist; return True
-    def get_position(self): 
-        if abs(self._position - self._target) > 0.1:
-            self._position += 0.1 if self._target > self._position else -0.1
-        return self._position
-    def stop(self): self._target = self._position; return True
-    def is_moving(self): return abs(self._position - self._target) > 0.1
-    def close(self): pass
+# # Mock controllers for demonstration
+# class PicoStepperController:
+#     def __init__(self, port=None, baudrate=115200, timeout=1.0):
+#         self.port = port or "COM3"
+#         self._current_rps = 0.0
+#         self._target_rps = 0.0
+#         self._position = 0
+#     def enable_motor(self): return True
+#     def disable_motor(self): return True
+#     def set_speed_rps(self, rps): self._target_rps = rps; return True
+#     def stop(self): self._target_rps = 0; return True
+#     def set_ramp_rate(self, rate): return True
+#     def get_status(self):
+#         if self._current_rps < self._target_rps: self._current_rps += 0.1
+#         elif self._current_rps > self._target_rps: self._current_rps -= 0.1
+#         self._position += int(self._current_rps * 200 / 10)
+#         return (self._current_rps, self._target_rps, self._position)
+#     def close(self): pass
+
+# class ThorlabsLTSController:
+#     def __init__(self, serial_number=None):
+#         self.serial_number = serial_number or "45000000"
+#         self._position = 0.0
+#         self._target = 0.0
+#     def home(self): self._position = 0.0; return True
+#     def move_absolute(self, pos): self._target = pos; return True
+#     def move_relative(self, dist): self._target = self._position + dist; return True
+#     def get_position(self): 
+#         if abs(self._position - self._target) > 0.1:
+#             self._position += 0.1 if self._target > self._position else -0.1
+#         return self._position
+#     def stop(self): self._target = self._position; return True
+#     def is_moving(self): return abs(self._position - self._target) > 0.1
+#     def close(self): pass
+    
+#     @staticmethod
+#     def list_devices():
+#         """List available Kinesis devices - mock for demonstration"""
+#         # In real implementation, this would scan for actual devices
+#         return [
+#             ("45123456", "LTS150"),
+#             ("45123457", "LTS300"),
+#             ("45123458", "LTS150")
+#         ]
 
 
 class PathExecutionThread(QThread):
@@ -170,10 +181,12 @@ class UnifiedMotionControlGUI(QMainWindow):
             axis_group = QGroupBox(f"{axis}-Axis Linear Stage (Thorlabs LTS)")
             axis_layout = QHBoxLayout()
             
-            axis_layout.addWidget(QLabel("Port:"))
-            port_combo = QComboBox()
-            setattr(self, f'lts_{axis.lower()}_port_combo', port_combo)
-            axis_layout.addWidget(port_combo)
+            axis_layout.addWidget(QLabel("Serial Number:"))
+            serial_input = QLineEdit()
+            serial_input.setPlaceholderText("e.g., 45123456")
+            serial_input.setMaximumWidth(150)
+            setattr(self, f'lts_{axis.lower()}_serial_input', serial_input)
+            axis_layout.addWidget(serial_input)
             
             connect_btn = QPushButton("Connect")
             connect_btn.clicked.connect(lambda checked, a=axis: self.toggle_connection(f'lts_{a.lower()}'))
@@ -195,8 +208,25 @@ class UnifiedMotionControlGUI(QMainWindow):
             axis_group.setLayout(axis_layout)
             layout.addWidget(axis_group)
         
+        # Available devices info
+        info_group = QGroupBox("Available Kinesis Devices")
+        info_layout = QVBoxLayout()
+        
+        self.device_list_text = QTextEdit()
+        self.device_list_text.setReadOnly(True)
+        self.device_list_text.setMaximumHeight(100)
+        self.device_list_text.setPlaceholderText("Click 'List Devices' to scan for available Thorlabs stages...")
+        info_layout.addWidget(self.device_list_text)
+        
+        list_devices_btn = QPushButton("List Available Devices")
+        list_devices_btn.clicked.connect(self.list_kinesis_devices)
+        info_layout.addWidget(list_devices_btn)
+        
+        info_group.setLayout(info_layout)
+        layout.addWidget(info_group)
+        
         # Refresh ports button
-        refresh_btn = QPushButton("Refresh All Ports")
+        refresh_btn = QPushButton("Refresh Stepper Ports")
         refresh_btn.clicked.connect(self.refresh_ports)
         layout.addWidget(refresh_btn)
         
@@ -445,16 +475,46 @@ class UnifiedMotionControlGUI(QMainWindow):
         return widget
     
     def refresh_ports(self):
-        """Refresh available serial ports"""
+        """Refresh available serial ports for stepper only"""
         ports = [port.device for port in serial.tools.list_ports.comports()]
         
         self.stepper_port_combo.clear()
         self.stepper_port_combo.addItems(ports if ports else ["No ports found"])
-        
-        for axis in ['x', 'y', 'z']:
-            combo = getattr(self, f'lts_{axis}_port_combo')
-            combo.clear()
-            combo.addItems(ports if ports else ["No ports found"])
+    
+    def list_kinesis_devices(self):
+        """List available Kinesis devices by serial number"""
+        try:
+            # This will use your lts_controller's device listing method
+            # Placeholder - replace with actual Kinesis device discovery
+            # Example: devices = ThorlabsLTSController.list_devices()
+            
+            # For demonstration
+            self.device_list_text.clear()
+            self.device_list_text.append("Scanning for Kinesis devices...")
+            
+            # You'll need to implement this in your lts_controller.py
+            # It should return a list of (serial_number, device_type) tuples
+            # Example implementation:
+            try:
+                from pylablib.devices import Thorlabs
+                devices = Thorlabs.list_kinesis_devices()
+                
+                if devices:
+                    self.device_list_text.append("\nFound devices:")
+                    for serial, dev_type in devices:
+                        self.device_list_text.append(f"  Serial: {serial} - Type: {dev_type}")
+                else:
+                    self.device_list_text.append("\nNo Kinesis devices found.")
+                    self.device_list_text.append("Make sure Kinesis software is closed and devices are connected.")
+            except ImportError:
+                self.device_list_text.append("\nError: pylablib not installed.")
+                self.device_list_text.append("Install with: pip install pylablib")
+            except Exception as e:
+                self.device_list_text.append(f"\nError scanning devices: {str(e)}")
+                
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not list devices:\n{str(e)}")
+            self.device_list_text.append(f"Error: {str(e)}")
     
     def toggle_connection(self, device):
         """Connect/disconnect devices"""
@@ -486,12 +546,17 @@ class UnifiedMotionControlGUI(QMainWindow):
             
             if controller_key not in self.lts_controllers:
                 try:
-                    port = getattr(self, f'lts_{axis.lower()}_port_combo').currentText()
-                    self.lts_controllers[controller_key] = ThorlabsLTSController(port=port)
+                    serial_number = getattr(self, f'lts_{axis.lower()}_serial_input').text().strip()
+                    if not serial_number:
+                        QMessageBox.warning(self, "Error", f"Please enter serial number for {axis}-axis")
+                        return
+                    
+                    self.lts_controllers[controller_key] = ThorlabsLTSController(serial_number=serial_number)
                     getattr(self, f'lts_{axis.lower()}_connect_btn').setText("Disconnect")
                     getattr(self, f'lts_{axis.lower()}_home_btn').setEnabled(True)
                     getattr(self, f'lts_{axis.lower()}_status_label').setText("Connected")
                     getattr(self, f'lts_{axis.lower()}_status_label').setStyleSheet("color: green; font-weight: bold;")
+                    getattr(self, f'lts_{axis.lower()}_serial_input').setEnabled(False)
                     
                     # Enable manual controls
                     getattr(self, f'{axis.lower()}_move_abs_btn').setEnabled(True)
@@ -499,9 +564,9 @@ class UnifiedMotionControlGUI(QMainWindow):
                     for btn in getattr(self, f'{axis.lower()}_jog_buttons'):
                         btn.setEnabled(True)
                     
-                    self.log_event(f"{axis}-axis stage connected on {port}")
+                    self.log_event(f"{axis}-axis stage connected (S/N: {serial_number})")
                 except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Failed to connect {axis}-axis: {e}")
+                    QMessageBox.critical(self, "Error", f"Failed to connect {axis}-axis:\n{str(e)}")
             else:
                 self.lts_controllers[controller_key].close()
                 del self.lts_controllers[controller_key]
@@ -509,6 +574,7 @@ class UnifiedMotionControlGUI(QMainWindow):
                 getattr(self, f'lts_{axis.lower()}_home_btn').setEnabled(False)
                 getattr(self, f'lts_{axis.lower()}_status_label').setText("Disconnected")
                 getattr(self, f'lts_{axis.lower()}_status_label').setStyleSheet("color: red;")
+                getattr(self, f'lts_{axis.lower()}_serial_input').setEnabled(True)
                 
                 # Disable manual controls
                 getattr(self, f'{axis.lower()}_move_abs_btn').setEnabled(False)
