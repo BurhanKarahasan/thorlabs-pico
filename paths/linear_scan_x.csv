@@ -1,0 +1,15 @@
+# Example 1: Single Axis (X only)
+# Simple linear scan along X-axis
+# Save as: linear_scan_x.csv
+X
+0.0
+5.0
+10.0
+15.0
+20.0
+25.0
+20.0
+15.0
+10.0
+5.0
+0.0

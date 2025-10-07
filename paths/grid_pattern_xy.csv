@@ -1,0 +1,16 @@
+# Example 2: Two Axes (X and Y)
+# Rectangular grid pattern
+# Save as: grid_pattern_xy.csv
+X,Y
+0.0,0.0
+10.0,0.0
+20.0,0.0
+30.0,0.0
+30.0,10.0
+20.0,10.0
+10.0,10.0
+0.0,10.0
+0.0,20.0
+10.0,20.0
+20.0,20.0
+30.0,20.0

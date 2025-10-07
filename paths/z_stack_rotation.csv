@@ -1,0 +1,16 @@
+# Example 7: Z-Stack with Rotation
+# Layer-by-layer imaging with rotation
+# Save as: z_stack_rotation.csv
+Z,Rotation
+0.0,0.0
+0.0,1.0
+0.0,2.0
+5.0,2.0
+5.0,3.0
+5.0,4.0
+10.0,4.0
+10.0,5.0
+10.0,6.0
+15.0,6.0
+15.0,7.0
+15.0,8.0
