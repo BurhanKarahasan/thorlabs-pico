@@ -25,6 +25,7 @@ The Unified Motion Control System provides a comprehensive GUI for controlling b
 - **Thorlabs LTS Series** linear stages (up to 3 axes: X, Y, Z)
 - USB cables for each device
 - Proper power supplies for all motors
+
 **Hardware Note**: Do the microstepping, baudrate, driver configurations according to stepper/driver configuration. Example Pi Pico script is given for RS PRO stepper and CW230 stepper driver.
 
 ### Connections
