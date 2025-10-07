@@ -26,7 +26,7 @@ The Unified Motion Control System provides a comprehensive GUI for controlling b
 - USB cables for each device
 - Proper power supplies for all motors
 
-**Hardware Note**: Do the microstepping, baudrate, driver configurations according to stepper/driver configuration. Example Pi Pico script is given for RS PRO stepper and CW230 stepper driver.
+**Hardware Note**: Do the microstepping, baudrate, library configurations according to your stepper/driver hardware. Example Pi Pico script is given for RS PRO stepper and CW230 stepper driver.
 
 ### Connections
 1. Connect Pi Pico W via USB to computer
